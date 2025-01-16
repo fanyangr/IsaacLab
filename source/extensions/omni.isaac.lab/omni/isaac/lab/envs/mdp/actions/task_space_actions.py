@@ -85,8 +85,8 @@ class DifferentialInverseKinematicsAction(ActionTerm):
             f"Resolved body name for the action term {self.__class__.__name__}: {self._body_name} [{self._body_idx}]"
         )
         # Avoid indexing across all joints for efficiency
-        if self._num_joints == self._asset.num_joints:
-            self._joint_ids = slice(None)
+        # if self._num_joints == self._asset.num_joints:
+        #     self._joint_ids = slice(None)
 
         # create the differential IK controller
         self._ik_controller = DifferentialIKController(
@@ -283,8 +283,8 @@ class OperationalSpaceControllerAction(ActionTerm):
             f" {self._ee_body_name} [{self._ee_body_idx}]"
         )
         # Avoid indexing across all joints for efficiency
-        if self._num_DoF == self._asset.num_joints:
-            self._joint_ids = slice(None)
+        # if self._num_DoF == self._asset.num_joints:
+        #     self._joint_ids = slice(None)
 
         # convert the fixed offsets to torch tensors of batched shape
         if self.cfg.body_offset is not None:

@@ -270,6 +270,87 @@ class Articulation(AssetBase):
         # find tendons
         return string_utils.resolve_matching_names(name_keys, tendon_subsets, preserve_order)
 
+
+    """
+    Operations - Getters.
+    """
+
+    def read_root_state_from_sim(self, env_ids: Sequence[int] | None = None) -> torch.Tensor:
+        if env_ids is None:
+            env_ids = slice(None)
+        root_state = self._data.root_state_w[env_ids].clone()
+        return root_state
+
+    def read_joint_state_from_sim(
+        self, env_ids: Sequence[int] | None = None, joint_ids: Sequence[int] | slice | None = None
+    ) -> dict[str, torch.Tensor]:
+        if env_ids is None:
+            env_ids = slice(None)
+        if joint_ids is None:
+            joint_ids = slice(None)
+        # broadcast env_ids if needed to allow double indexing
+        if env_ids != slice(None) and joint_ids != slice(None):
+            env_ids = env_ids[:, None]
+        position = self._data.joint_pos[env_ids, joint_ids].clone()
+        velocity = self._data.joint_vel[env_ids, joint_ids].clone()
+        position_target = self._data.joint_pos_target[env_ids, joint_ids].clone()
+        velocity_target = self._data.joint_vel_target[env_ids, joint_ids].clone()
+        effort_target = self._data.joint_effort_target[env_ids, joint_ids].clone()
+        return {
+            "position": position,
+            "velocity": velocity,
+            "position_target": position_target,
+            "velocity_target": velocity_target,
+            "effort_target": effort_target,
+        }
+
+    def read_state_from_sim(self, env_ids: Sequence[int] | None = None):
+        """Read the state of the articulation from the simulation.
+        Note: doesn't include external wrench
+
+        Args:
+            env_ids: Environment indices. If None, then all indices are used.
+        """
+        root_state = self.read_root_state_from_sim(env_ids)
+        joint_state = self.read_joint_state_from_sim(env_ids)
+        return {"root_state": root_state, "joint_state": joint_state}
+
+    def read_body_pos_w(
+        self, name_keys: str | Sequence[str], env_ids: Sequence[int] | None = None, preserve_order: bool = False
+    ):
+        """Read the position of the bodies in the articulation from the simulation."""
+        if env_ids is None:
+            env_ids = slice(None)
+        body_ids, _ = self.find_bodies(name_keys, preserve_order)
+        return self._data.body_pos_w[env_ids, body_ids]
+
+    def read_body_quat_w(
+        self, name_keys: str | Sequence[str], env_ids: Sequence[int] | None = None, preserve_order: bool = False
+    ):
+        """Read the orientation of the bodies in the articulation from the simulation."""
+        if env_ids is None:
+            env_ids = slice(None)
+        body_ids, _ = self.find_bodies(name_keys, preserve_order)
+        return self._data.body_quat_w[env_ids, body_ids]
+
+    def read_body_state_w(
+        self, name_keys: str | Sequence[str], env_ids: Sequence[int] | None = None, preserve_order: bool = False
+    ):
+        """Read the state of the bodies in the articulation from the simulation."""
+        if env_ids is None:
+            env_ids = slice(None)
+        body_ids, _ = self.find_bodies(name_keys, preserve_order)
+        return self._data.body_state_w[env_ids, body_ids]
+
+    def read_body_vel_w(
+        self, name_keys: str | Sequence[str], env_ids: Sequence[int] | None = None, preserve_order: bool = False
+    ):
+        """Read the velocity of the bodies in the articulation from the simulation."""
+        if env_ids is None:
+            env_ids = slice(None)
+        body_ids, _ = self.find_bodies(name_keys, preserve_order)
+        return self._data.body_vel_w[env_ids, body_ids]
+    
     """
     Operations - Writers.
     """
@@ -1307,11 +1388,26 @@ class Articulation(AssetBase):
                 )
             # create actuator collection
             # note: for efficiency avoid indexing when over all indices
+            # actuator: ActuatorBase = actuator_cfg.class_type(
+            #     cfg=actuator_cfg,
+            #     joint_names=joint_names,
+            #     joint_ids=(
+            #         slice(None) if len(joint_names) == self.num_joints else torch.tensor(joint_ids, device=self.device)
+            #     ),
+            #     num_envs=self.num_instances,
+            #     device=self.device,
+            #     stiffness=self._data.default_joint_stiffness[:, joint_ids],
+            #     damping=self._data.default_joint_damping[:, joint_ids],
+            #     armature=self._data.default_joint_armature[:, joint_ids],
+            #     friction=self._data.default_joint_friction[:, joint_ids],
+            #     effort_limit=self.root_physx_view.get_dof_max_forces().to(self.device).clone()[:, joint_ids],
+            #     velocity_limit=self.root_physx_view.get_dof_max_velocities().to(self.device).clone()[:, joint_ids],
+            # )
             actuator: ActuatorBase = actuator_cfg.class_type(
                 cfg=actuator_cfg,
                 joint_names=joint_names,
                 joint_ids=(
-                    slice(None) if len(joint_names) == self.num_joints else torch.tensor(joint_ids, device=self.device)
+                    torch.tensor(joint_ids, device=self.device)
                 ),
                 num_envs=self.num_instances,
                 device=self.device,

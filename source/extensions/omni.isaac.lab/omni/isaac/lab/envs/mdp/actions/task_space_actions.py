@@ -200,7 +200,7 @@ class DifferentialInverseKinematicsAction(ActionTerm):
         ee_pose_b, ee_quat_b = math_utils.subtract_frame_transforms(root_pos_w, root_quat_w, ee_pos_w, ee_quat_w)
         # account for the offset
         if self.cfg.body_offset is not None:
-            ee_pose_b, ee_quat_b = math_utils.combine_frame_transforms(
+            ee_pose_b, ee_quat_b = math_utils.combine_frame_transforms_2(
                 ee_pose_b, ee_quat_b, self._offset_pos, self._offset_rot
             )
 

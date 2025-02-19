@@ -30,6 +30,8 @@ from omni.isaac.lab.terrains import TerrainImporter, TerrainImporterCfg
 
 from .interactive_scene_cfg import InteractiveSceneCfg
 
+import copy
+
 
 class InteractiveScene:
     """A scene that contains entities added to the simulation.
@@ -394,6 +396,28 @@ class InteractiveScene:
     """
     Operations.
     """
+    def read_state(self, env_ids: Sequence[int] | None = None) -> dict[str, torch.Tensor]:
+        state_dict = {}
+        for asset_family in [
+            self._articulations,
+            self._rigid_objects,
+        ]:
+            for asset_name, asset in asset_family.items():
+                asset_state = asset.read_state_from_sim(env_ids=env_ids)
+                asset_state["root_state"][:, :3] -= self.env_origins
+                state_dict[asset_name] = asset_state
+        return state_dict
+
+    def write_state(self, state_dict: dict[str, torch.Tensor], env_ids: Sequence[int] | None = None):
+        if env_ids is None:
+            tmp_env_ids = slice(None)
+        else:
+            tmp_env_ids = env_ids
+        state_dict_write = copy.deepcopy(state_dict)
+        for asset_name, asset_state in state_dict_write.items():
+            asset_state["root_state"][:, :3] += self.env_origins[tmp_env_ids]
+            self[asset_name].write_state_to_sim(asset_state, env_ids=env_ids)
+            self[asset_name].update(self.physics_dt)
 
     def reset(self, env_ids: Sequence[int] | None = None):
         """Resets the scene entities.

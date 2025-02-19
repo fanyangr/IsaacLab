@@ -780,6 +780,42 @@ def combine_frame_transforms(
 
     return t02, q02
 
+@torch.jit.script
+def combine_frame_transforms_2(
+    t01: torch.Tensor, q01: torch.Tensor, t12: torch.Tensor | None = None, q12: torch.Tensor | None = None
+) -> tuple[torch.Tensor, torch.Tensor]:
+    r"""
+    translate and rotate instead of rotate and translate
+    Combine transformations between two reference frames into a stationary frame.
+
+    It performs the following transformation operation: :math:`T_{02} = T_{01} \times T_{12}`,
+    where :math:`T_{AB}` is the homogeneous transformation matrix from frame A to B.
+
+    Args:
+        t01: Position of frame 1 w.r.t. frame 0. Shape is (N, 3).
+        q01: Quaternion orientation of frame 1 w.r.t. frame 0 in (w, x, y, z). Shape is (N, 4).
+        t12: Position of frame 2 w.r.t. frame 1. Shape is (N, 3).
+            Defaults to None, in which case the position is assumed to be zero.
+        q12: Quaternion orientation of frame 2 w.r.t. frame 1 in (w, x, y, z). Shape is (N, 4).
+            Defaults to None, in which case the orientation is assumed to be identity.
+
+    Returns:
+        A tuple containing the position and orientation of frame 2 w.r.t. frame 0.
+        Shape of the tensors are (N, 3) and (N, 4) respectively.
+    """
+    # compute orientation
+    if q12 is not None:
+        q02 = quat_mul(q01, q12)
+    else:
+        q02 = q01
+    # compute translation
+    if t12 is not None:
+        t02 = t01 + t12
+    else:
+        t02 = t01
+
+    return t02, q02
+
 
 # @torch.jit.script
 def subtract_frame_transforms(

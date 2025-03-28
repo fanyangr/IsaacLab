@@ -129,12 +129,14 @@ class RigidObject(AssetBase):
             env_ids = slice(None)
             physx_env_ids = self._ALL_INDICES
         # read from simulation
-        root_poses_xyzw = self.root_physx_view.get_transforms()
+        root_poses_xyzw = self.root_physx_view.get_transforms() # phsyx has quat in xyzw
         # convert root quaternion from xyzw to wxyz
-        root_poses_xyzw[:, 3:] = math_utils.convert_quat(root_poses_xyzw[:, 3:], to="wxyz")
+        wxyz_quat = math_utils.convert_quat(root_poses_xyzw[:, 3:], to="wxyz")
+        root_poses_wxyz= torch.cat((root_poses_xyzw[:, :3], wxyz_quat), dim=-1)
+        # root_poses_xyzw[:, 3:] = math_utils.convert_quat(root_poses_xyzw[:, 3:], to="wxyz")
         buffer = self._data.root_state_w[env_ids, :7]
-        assert torch.norm(root_poses_xyzw - buffer) < 1e-6, "Mismatch in root pose."
-        return root_poses_xyzw
+        assert torch.norm(root_poses_wxyz - buffer) < 1e-6, "Mismatch in root pose."
+        return root_poses_wxyz
 
     def read_root_velocity_from_sim(self, env_ids: Sequence[int] | None = None) -> torch.Tensor:
         """Read the root velocity from the simulation.
@@ -151,7 +153,8 @@ class RigidObject(AssetBase):
             env_ids = slice(None)
             physx_env_ids = self._ALL_INDICES
         # read from simulation
-        root_velocities = self.root_physx_view.get_velocities(indices=physx_env_ids)
+        # root_velocities = self.root_physx_view.get_velocities(indices=physx_env_ids)
+        root_velocities = self.root_physx_view.get_velocities()
         buffer = self._data.root_state_w[env_ids, 7:]
         assert torch.norm(root_velocities - buffer) < 1e-6, "Mismatch in root velocity."
         return root_velocities
@@ -177,6 +180,8 @@ class RigidObject(AssetBase):
         """
         # write external wrench
         if self.has_external_wrench:
+            print(self._external_force_b.sum())
+            print(self._external_torque_b.sum())
             self.root_physx_view.apply_forces_and_torques_at_position(
                 force_data=self._external_force_b.view(-1, 3),
                 torque_data=self._external_torque_b.view(-1, 3),

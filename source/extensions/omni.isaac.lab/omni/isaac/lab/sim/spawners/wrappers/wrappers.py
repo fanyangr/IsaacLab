@@ -94,17 +94,23 @@ def spawn_multi_asset(
     # manually clone prims if the source prim path is a regex expression
     # note: unlike in the cloner API from Isaac Sim, we do not "reset" xforms on the copied prims.
     #   This is because the "spawn" calls during the creation of the proto prims already handles this operation.
+    asset_dir = []
     with Sdf.ChangeBlock():
         for index, prim_path in enumerate(prim_paths):
             # spawn single instance
             env_spec = Sdf.CreatePrimInLayer(stage.GetRootLayer(), prim_path)
             # randomly select an asset configuration
             if cfg.random_choice:
-                proto_path = random.choice(proto_prim_paths)
+                asset_idx = random.choice(range(len(proto_prim_paths)))
+                proto_path = proto_prim_paths[asset_idx]
             else:
-                proto_path = proto_prim_paths[index % len(proto_prim_paths)]
+                asset_idx = index % len(proto_prim_paths)
+                proto_path = proto_prim_paths[asset_idx]
+            asset_dir.append(cfg.assets_cfg[asset_idx].usd_path)
             # copy the proto prim
             Sdf.CopySpec(env_spec.layer, Sdf.Path(proto_path), env_spec.layer, Sdf.Path(prim_path))
+    # save the idx in cfg
+    cfg.asset_dir = asset_dir
 
     # delete the dataset prim after spawning
     prim_utils.delete_prim(template_prim_path)
@@ -166,4 +172,6 @@ def spawn_multi_usd_file(
     multi_asset_cfg.random_choice = cfg.random_choice
 
     # call the original function
-    return spawn_multi_asset(prim_path, multi_asset_cfg, translation, orientation)
+    prim = spawn_multi_asset(prim_path, multi_asset_cfg, translation, orientation)
+    cfg.asset_dir = multi_asset_cfg.asset_dir
+    return prim
